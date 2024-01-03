@@ -33,14 +33,14 @@ const Stack = struct {
         return self.stack[self.stack_size];
     }
 
-    pub fn show(self: Stack, out: anytype) !void {
-        try out.print("Stack: [", .{});
+    pub fn show(self: Stack) void {
+        // std.debug.print("Stack: [", .{});
 
         for (0..self.stack_size) |i| {
-            try out.print("{d} ", .{self.stack[i]});
+            std.debug.print("{d} ", .{self.stack[i]});
         }
 
-        try out.print("]", .{});
+        // std.debug.print("]", .{});
     }
 };
 
@@ -59,12 +59,32 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
 }
 
 fn processToken(token: []const u8) !void {
-    // try to parse integer
-    if (fmt.parseInt(Word, token, 0)) |num| {
-        std.debug.print("{d}\n", .{num});
-    } else |err| {
-        return err;
+    const first_char = token[0];
+    // probably a number, try to parse
+    if (std.ascii.isDigit(first_char)) {
+        const num = try fmt.parseInt(Word, token, 0);
+        try stack.push(num);
     }
+
+    if (first_char == 's') {
+        stack.show();
+    }
+
+    if (std.mem.eql(u8, token, "+")) {
+        var a = try stack.pop();
+        var b = try stack.pop();
+
+        try stack.push(a + b);
+    }
+
+    // try to parse integer
+    // var num = fmt.parseInt(Word, token, 0);
+    // _ = num;
+    // if (fmt.parseInt(Word, token, 0)) |num| {
+    //     std.debug.print("{d}\n", .{num});
+    // } else |err| {
+    //     return err;
+    // }
 
     // std.debug.print("{d}\n", .{ret});
 }
@@ -81,13 +101,13 @@ fn processToken(token: []const u8) !void {
 //     try stdout.print("not found", .{});
 // }
 
+var stack = Stack{};
+
 pub fn main() !void {
     const stdin = std.io.getStdIn();
     const stdout = std.io.getStdOut();
     const writer = stdout.writer();
 
-    var stack = Stack{};
-    _ = stack;
     var line_buf: [LINE_BUF_SIZE]u8 = undefined;
 
     const allocator: std.mem.Allocator = init: {
