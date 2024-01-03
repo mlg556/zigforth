@@ -1,12 +1,16 @@
 const std = @import("std");
+const fmt = std.fmt;
 
 const STACK_CAPACITY = 1024;
 const LINE_BUF_SIZE = 64;
-const Word = i64;
+const ALLOC_BUF_SIZE = 1024;
+
+const Word = i32;
 
 const Err = error{
     STACK_OVERFLOW,
     STACK_UNDERFLOW,
+    UNKNOWN_WORD,
 };
 
 const Stack = struct {
@@ -54,6 +58,25 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     }
 }
 
+fn processToken(token: []const u8) !void {
+    // try to parse integer
+    const x = fmt.parseInt(Word, token, 10) catch return Err.UNKNOWN_WORD;
+    _ = x;
+    // std.debug.print("{d}\n", .{ret});
+}
+
+// dict
+// a dict of String -> String
+// var dict = std.StringHashMap([]const u8).init(allocator);
+// try dict.put("a", "1");
+// //var val = dict.get("b") orelse "NOTFOUND";
+// var val = dict.get("b");
+// if (val) |v| {
+//     try stdout.print("found: {s} \n", .{v});
+// } else {
+//     try stdout.print("not found", .{});
+// }
+
 pub fn main() !void {
     const stdin = std.io.getStdIn();
     const stdout = std.io.getStdOut();
@@ -63,6 +86,16 @@ pub fn main() !void {
     _ = stack;
     var line_buf: [LINE_BUF_SIZE]u8 = undefined;
 
+    const allocator: std.mem.Allocator = init: {
+        // use an array as the "heap"
+        var buffer: [ALLOC_BUF_SIZE]u8 = undefined;
+        var fba = std.heap.FixedBufferAllocator.init(&buffer);
+        break :init fba.allocator();
+    };
+
+    var dict = std.StringHashMap([]const u8).init(allocator);
+    _ = dict;
+
     while (true) {
         try writer.print(">> ", .{});
         const line = (try nextLine(stdin.reader(), &line_buf)).?;
@@ -70,8 +103,18 @@ pub fn main() !void {
         var i: u8 = 0;
 
         while (tokens.next()) |token| {
-            try writer.print("token {d}: {s}\n", .{ i, token });
+            const ret = processToken(token);
+
+            // check if void before printing?
+            try writer.print("{!}\n", .{ret});
+
             i += 1;
         }
     }
 }
+
+// test "test" {
+//     var x = try std.fmt.parseInt(Word, "-43", 10);
+
+//     std.debug.print("x={d}\n", .{x});
+// }
