@@ -60,8 +60,12 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
 
 fn processToken(token: []const u8) !void {
     // try to parse integer
-    const x = fmt.parseInt(Word, token, 10) catch return Err.UNKNOWN_WORD;
-    _ = x;
+    if (fmt.parseInt(Word, token, 0)) |num| {
+        std.debug.print("{d}\n", .{num});
+    } else |err| {
+        return err;
+    }
+
     // std.debug.print("{d}\n", .{ret});
 }
 
@@ -113,8 +117,4 @@ pub fn main() !void {
     }
 }
 
-// test "test" {
-//     var x = try std.fmt.parseInt(Word, "-43", 10);
-
-//     std.debug.print("x={d}\n", .{x});
-// }
+test "test" {}
