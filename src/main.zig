@@ -1,79 +1,77 @@
 const std = @import("std");
 
-pub fn Stack(comptime T: type) type {
-    return struct {
-        const Self = @This();
+const STACK_CAPACITY = 1024;
+const LINE_BUF_SIZE = 64;
+const Word = i64;
 
-        list: std.ArrayList(T) = undefined,
+const Err = error{
+    STACK_OVERFLOW,
+    STACK_UNDERFLOW,
+};
 
-        pub fn init(self: *Self, allocator: std.mem.Allocator) void {
-            self.list = std.ArrayList(T).init(allocator);
+const Stack = struct {
+    stack: [STACK_CAPACITY]Word = undefined,
+    stack_size: usize = 0,
+
+    pub fn push(self: *Stack, operand: Word) !void {
+        if (self.stack_size >= STACK_CAPACITY)
+            return Err.STACK_OVERFLOW;
+
+        self.stack[self.stack_size] = operand;
+        self.stack_size += 1;
+    }
+
+    pub fn pop(self: *Stack) !Word {
+        if (self.stack_size == 0)
+            return Err.STACK_UNDERFLOW;
+
+        self.stack_size -= 1;
+        return self.stack[self.stack_size];
+    }
+
+    pub fn show(self: Stack, out: anytype) !void {
+        try out.print("Stack: [", .{});
+
+        for (0..self.stack_size) |i| {
+            try out.print("{d} ", .{self.stack[i]});
         }
 
-        pub fn deinit(self: *Self) void {
-            self.list.deinit();
-        }
+        try out.print("]", .{});
+    }
+};
 
-        pub fn size(self: *Self) usize {
-            return self.list.items.len;
-        }
-
-        pub fn isEmpty(self: *Self) bool {
-            return self.size() == 0;
-        }
-
-        pub fn peek(self: *Self) T {
-            return self.list.getLastOrNull();
-        }
-
-        pub fn push(self: *Self, x: T) !void {
-            try self.list.append(x);
-        }
-
-        pub fn pop(self: *Self) ?T {
-            return self.list.popOrNull();
-        }
-    };
+// taken from https://ziglearn.org/chapter-2/#readers-and-writers
+fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
+    var line = (try reader.readUntilDelimiterOrEof(
+        buffer,
+        '\n',
+    )) orelse return null;
+    // trim annoying windows-only carriage return character
+    if (@import("builtin").os.tag == .windows) {
+        return std.mem.trimRight(u8, line, "\r");
+    } else {
+        return line;
+    }
 }
+
 pub fn main() !void {
-    const stdout = std.io.getStdOut().writer();
+    const stdin = std.io.getStdIn();
+    const stdout = std.io.getStdOut();
+    const writer = stdout.writer();
 
-    const allocator: std.mem.Allocator = init: {
-        // use an array as the "heap"
-        var buffer: [1024]u8 = undefined;
-        var fba = std.heap.FixedBufferAllocator.init(&buffer);
-        break :init fba.allocator();
-    };
+    var stack = Stack{};
+    _ = stack;
+    var line_buf: [LINE_BUF_SIZE]u8 = undefined;
 
-    // dict
-    // a dict of String -> String
-    // var dict = std.StringHashMap([]const u8).init(allocator);
-    // try dict.put("a", "1");
-    // //var val = dict.get("b") orelse "NOTFOUND";
-    // var val = dict.get("b");
-    // if (val) |v| {
-    //     try stdout.print("found: {s} \n", .{v});
-    // } else {
-    //     try stdout.print("not found", .{});
-    // }
+    while (true) {
+        try writer.print(">> ", .{});
+        const line = (try nextLine(stdin.reader(), &line_buf)).?;
+        var tokens = std.mem.tokenizeScalar(u8, line, ' ');
+        var i: u8 = 0;
 
-    var stack = Stack(i32){};
-    stack.init(allocator);
-    defer stack.deinit();
-
-    // try stack.push(1);
-    // try stack.push(3);
-
-    var x = stack.pop();
-    _ = x;
-
-    try stdout.print("{?:}", .{stack.list});
-
-    // for (stack.list.items) |item| {
-    //     try stdout.print("{} ", .{item});
-    // }
-
-    // try stdout.print("{s}", stack.stack.?);
-    //stdout.print("not found", .{});
-
+        while (tokens.next()) |token| {
+            try writer.print("token {d}: {s}\n", .{ i, token });
+            i += 1;
+        }
+    }
 }
