@@ -1,5 +1,7 @@
 const std = @import("std");
 const fmt = std.fmt;
+const eql = std.mem.eql;
+const isDigit = std.ascii.isDigit;
 
 const STACK_CAPACITY = 1024;
 const LINE_BUF_SIZE = 64;
@@ -61,7 +63,7 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
 fn processToken(token: []const u8) !void {
     const first_char = token[0];
     // probably a number, try to parse
-    if (std.ascii.isDigit(first_char)) {
+    if (isDigit(first_char)) {
         const num = try fmt.parseInt(Word, token, 0);
         try stack.push(num);
     }
@@ -70,11 +72,16 @@ fn processToken(token: []const u8) !void {
         stack.show();
     }
 
-    if (std.mem.eql(u8, token, "+")) {
+    if (eql(u8, token, "+")) {
         var a = try stack.pop();
         var b = try stack.pop();
 
         try stack.push(a + b);
+    }
+
+    if (eql(u8, token, ".")) {
+        var a = try stack.pop();
+        std.debug.print("{d}\n", .{a});
     }
 
     // try to parse integer
