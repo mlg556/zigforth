@@ -9,6 +9,9 @@ const ALLOC_BUF_SIZE = 1024;
 
 const Word = i32;
 
+var compile_mode = false; // are we in compile mode : ___ ;
+var token_idx: u32 = 0; // which token is this
+
 const Err = error{
     STACK_OVERFLOW,
     STACK_UNDERFLOW,
@@ -60,41 +63,60 @@ fn nextLine(reader: anytype, buffer: []u8) !?[]const u8 {
     }
 }
 
-fn processToken(token: []const u8) !void {
-    const first_char = token[0];
-    // probably a number, try to parse
-    if (isDigit(first_char)) {
-        const num = try fmt.parseInt(Word, token, 0);
-        try stack.push(num);
+const Parser = struct {
+    stack: Stack,
+    dict: std.StringHashMap([]const u8),
+    curr_word: []const u8,
+
+    pub fn init(d: std.StringHashMap([]const u8)) Parser {
+        var p: Parser = undefined;
+        p.stack = Stack{};
+        p.dict = d;
+
+        return p;
     }
 
-    if (first_char == 's') {
-        stack.show();
+    fn processToken(p: *Parser, token: []const u8, idx: u32) !void {
+        const first_char = token[0];
+        // probably a number, try to parse
+        if (isDigit(first_char)) {
+            const num = try fmt.parseInt(Word, token, 0);
+            try p.stack.push(num);
+        }
+
+        if (first_char == 's') {
+            p.stack.show();
+        }
+
+        if (eql(u8, token, "+")) {
+            var a = try p.stack.pop();
+            var b = try p.stack.pop();
+
+            try p.stack.push(a + b);
+        }
+
+        if (eql(u8, token, ".")) {
+            var a = try p.stack.pop();
+            std.debug.print("{d}\n", .{a});
+        }
+
+        if (eql(u8, token, ":")) {
+            // we in compile mode
+            compile_mode = true;
+        }
+
+        if (eql(u8, token, ";")) {
+            // out of compile mode
+            compile_mode = false;
+        }
+
+        // save this word
+        if (idx == 1 and compile_mode) {
+
+            //try dict.put(key: K, value: V)
+        }
     }
-
-    if (eql(u8, token, "+")) {
-        var a = try stack.pop();
-        var b = try stack.pop();
-
-        try stack.push(a + b);
-    }
-
-    if (eql(u8, token, ".")) {
-        var a = try stack.pop();
-        std.debug.print("{d}\n", .{a});
-    }
-
-    // try to parse integer
-    // var num = fmt.parseInt(Word, token, 0);
-    // _ = num;
-    // if (fmt.parseInt(Word, token, 0)) |num| {
-    //     std.debug.print("{d}\n", .{num});
-    // } else |err| {
-    //     return err;
-    // }
-
-    // std.debug.print("{d}\n", .{ret});
-}
+};
 
 // dict
 // a dict of String -> String
@@ -107,8 +129,6 @@ fn processToken(token: []const u8) !void {
 // } else {
 //     try stdout.print("not found", .{});
 // }
-
-var stack = Stack{};
 
 pub fn main() !void {
     const stdin = std.io.getStdIn();
@@ -124,22 +144,23 @@ pub fn main() !void {
         break :init fba.allocator();
     };
 
-    var dict = std.StringHashMap([]const u8).init(allocator);
-    _ = dict;
+    var dictionary = std.StringHashMap([]const u8).init(allocator);
+
+    var parser = Parser.init(dictionary);
 
     while (true) {
         try writer.print(">> ", .{});
         const line = (try nextLine(stdin.reader(), &line_buf)).?;
         var tokens = std.mem.tokenizeScalar(u8, line, ' ');
-        var i: u8 = 0;
+        token_idx = 0;
 
         while (tokens.next()) |token| {
-            const ret = processToken(token);
+            const ret = parser.processToken(token, token_idx);
 
             // check if void before printing?
             try writer.print("{!}\n", .{ret});
 
-            i += 1;
+            token_idx += 1;
         }
     }
 }
